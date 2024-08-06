@@ -53,13 +53,13 @@ PROVIDERS = {
     "You": g4f.Provider.You,
     "Yqcloud": g4f.Provider.Yqcloud,
     "Bard": g4f.Provider.Bard,
-    "DuckDuckGo": g4f.Provider.DuckDuckGo
+    #"DuckDuckGo": g4f.Provider.DuckDuckGo
 }
 
 GENERIC_MODELS = ["gpt-3.5-turbo", "gpt-4", "gpt-4o"]
 
 
-print(
+print(  
     """
     FreeGPT4 Web API - A Web API for GPT-4
     Repo: github.com/aledipa/FreeGPT4-WEB-API
@@ -199,6 +199,9 @@ def load_settings(file=SETTINGS_FILE):
 data = load_settings()
 if (args.keyword == None):
     args.keyword = data["keyword"]
+
+if(args.enable_gui == False):
+    args.enable_gui = True
 
 if (args.file_input == False):
     args.file_input = data["file_input"]
@@ -364,28 +367,35 @@ async def index() -> str:
     Main function
     """
 
-    # Starts the bot and gets the input
-    print("Initializing...")
-    question = None
+    # Récupère l'identifiant unique de la requête et le prompt
+    request_id = request.args.get('request_id')
+    question = request.args.get(args.keyword) if request.method == "GET" else None
 
-    print("start")
-    if request.method == "GET":
-        question = request.args.get(args.keyword) #text
-        if (args.private_mode and request.args.get("token") != data["token"]):
-            return "<p id='response'>Invalid token</p>"
-        print("get")
-    else:
+    if request.method == "POST":
         file = request.files["file"]
         text = file.read().decode("utf-8")
         question = text
+
+    if not request_id:
+        return "<p id='response'>Missing request ID</p>"
+
+    if not question:
+        return f"<p id='response' data-request-id='{request_id}'>Please enter a question</p>"
+
+    # Starts the bot and gets the input
+    print("Initializing...")
+    print("start")
+
+    if request.method == "GET":
+        if (args.private_mode and request.args.get("token") != data["token"]):
+            return f"<p id='response' data-request-id='{request_id}'>Invalid token</p>"
+        print("get")
+    else:
         print("Post reading the file", question)
 
     print("ici")
-    if question is None:
-        return "<p id='response'>Please enter a question</p>"
 
     # Gets the response from the bot
-    # print(PROVIDERS[args.provider].params)  # supported args
     print("\nCookies: " + str(len(args.cookie_file)))
     print("\nInput: " + question)
     if (len(args.cookie_file) != 0):
@@ -399,7 +409,6 @@ async def index() -> str:
             exit()
     else:
         cookies = {"a": "b"} # Dummy cookies
-
 
     if (args.enable_history):
         print("History enabled")
@@ -453,7 +462,7 @@ async def index() -> str:
                 resp_str.pop(0)
             resp_str = re.sub(r"\[\^[0-9]+\^\]\[[0-9]+\]", "", str(resp_str[0]))
     # Returns the response
-    return resp_str
+    return f"{resp_str}"
     # return "<p id='response'>" + resp + "</p>" # Uncomment if preferred
 
 def auth():
